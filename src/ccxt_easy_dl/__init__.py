@@ -1,5 +1,4 @@
-from datetime import timedelta
-import datetime
+from datetime import timedelta, datetime
 import time
 
 import ccxt
@@ -37,8 +36,8 @@ def download_ohlcv(
     symbol: str = 'BTC/USD',
     exchange: str = 'bitstamp',
     timeframes: list[str] = ['1d'],
-    start_date: datetime.datetime | None = None,
-    end_date: datetime.datetime | None = None
+    start_date: datetime | None = None,
+    end_date: datetime | None = None
 ) -> None:
     """
     Download OHLCV data from specified exchange for given timeframes.
@@ -56,6 +55,7 @@ def download_ohlcv(
     end_date : datetime, optional
         End date for data download. If None, defaults to current time
     """
+    # needs to return dict[timeframe, df] AI!
     
     # Initialize exchange
     exchange = get_and_validate_exchange(exchange)
