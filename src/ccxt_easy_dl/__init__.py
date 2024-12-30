@@ -156,7 +156,7 @@ def parquet_cache_to_pandas(
     FileNotFoundError
         If the cached file does not exist
     """
-    # Create the expected file path
+    # Create the expected file path -- turn this file path creation logic into a func AI!
     cache_path = Path(CACHE_DIR) / exchange_name
     filename = f"{symbol.replace('/', '')}.{timeframe}.parquet"
     filepath = cache_path / filename
@@ -247,18 +247,24 @@ def download_ohlcv(
     if not start_date:
         start_date = end_date - timedelta(days=30)  # Default to last 30 days
 
-    # Convert dates to timestamps
-    since = int(start_date.timestamp() * 1000)
-    until = int(end_date.timestamp() * 1000)
-
     for timeframe in timeframes:
+        since = int(start_date.timestamp() * 1000)
+        until = int(end_date.timestamp() * 1000)
+        min_date = start_date
+        max_date = end_date
         date_range_list = date_range_to_list(start_date, end_date, timeframe)
         existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
-        diff = get_daterange_and_df_diff(date_range_list, existing_df)
-        if not diff:
-            # Slice the existing DataFrame to only include the requested date range
-            results[timeframe] = existing_df.loc[start_date:end_date]
-        print(f"Downloading {symbol} data for {timeframe} timeframe...")
+        if not existing_df.empty:
+            date_diff = get_daterange_and_df_diff(date_range_list, existing_df)
+            if not date_diff:
+                # Slice the existing DataFrame to only include the requested date range
+                results[timeframe] = existing_df.loc[start_date:end_date]
+                continue
+            min_date = min(date_diff)
+            max_date = max(date_diff)
+            until = min_date.timestamp() * 1000
+            since = max_date.timestamp() * 1000
+        print(f"Downloading {symbol} data for {timeframe} timeframe from {min_date} to {max_date}...")
 
         all_ohlcv = []
         current_since = since
@@ -296,6 +302,9 @@ def download_ohlcv(
             )
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             df.set_index("timestamp", inplace=True)
+            cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
+            print(f"{symbol}'s {timeframe} data has been saved to {cache_path}")
+
 
             # Store DataFrame in results dictionary
             results[timeframe] = df
