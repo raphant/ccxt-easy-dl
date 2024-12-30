@@ -168,7 +168,11 @@ def parquet_cache_to_pandas(
     df = pd.read_parquet(filepath, parse_dates=["date"])
     return df
 
-
+def get_daterange_and_df_diff(date_range: list[datetime], df: pd.DataFrame) -> list[datetime]:
+    """
+    get a list of dates that are in dante_range and not in df. May need to convert df 'dates' col to datetime.
+    """
+    # let's do this AI!
 def download_ohlcv(
     symbol: str = "BTC/USD",
     exchange_name: str = "bitstamp",
@@ -216,8 +220,9 @@ def download_ohlcv(
     until = int(end_date.timestamp() * 1000)
 
     for timeframe in timeframes:
-        existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
         date_range_list = date_range_to_list(start_date, end_date, timeframe)
+        existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
+        diff = get_daterange_and_df_diff(date_range_list, existing_df)
         print(f"Downloading {symbol} data for {timeframe} timeframe...")
 
         all_ohlcv = []
