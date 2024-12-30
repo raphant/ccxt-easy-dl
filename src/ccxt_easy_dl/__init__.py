@@ -37,7 +37,8 @@ def download_ohlcv(
     exchange: str = 'bitstamp',
     timeframes: list[str] = ['1d'],
     start_date: datetime | None = None,
-    end_date: datetime | None = None
+    end_date: datetime | None = None,
+    export: bool = False # support this. AI!
 ) -> dict[str, pd.DataFrame]:
     """
     Download OHLCV data from specified exchange for given timeframes.
