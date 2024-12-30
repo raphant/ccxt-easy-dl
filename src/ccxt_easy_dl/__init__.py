@@ -78,9 +78,51 @@ def date_range_to_list(
     start_date: datetime, end_date: datetime, timeframe: str
 ) -> list[datetime]:
     """
-    takes a daterange and turns it into a list of dates in intervals of timeframe. `timeframe` is a one of the supported TIMEFRAMES above.
+    Generate a list of datetime objects at intervals based on the timeframe.
+
+    Parameters
+    ----------
+    start_date : datetime
+        Start of the date range
+    end_date : datetime
+        End of the date range
+    timeframe : str
+        Timeframe interval (must be one of TIMEFRAMES)
+
+    Returns
+    -------
+    list[datetime]
+        List of datetime objects at the specified intervals
+
+    Raises
+    ------
+    ValueError
+        If timeframe is not in TIMEFRAMES
     """
-    # complete this AI!
+    if timeframe not in TIMEFRAMES:
+        raise ValueError(f"Unsupported timeframe: {timeframe}")
+
+    # Convert timeframe to timedelta
+    timeframe_map = {
+        "1m": timedelta(minutes=1),
+        "5m": timedelta(minutes=5),
+        "15m": timedelta(minutes=15),
+        "30m": timedelta(minutes=30),
+        "1h": timedelta(hours=1),
+        "4h": timedelta(hours=4),
+        "1d": timedelta(days=1),
+        "1w": timedelta(weeks=1),
+    }
+
+    delta = timeframe_map[timeframe]
+    date_list = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        date_list.append(current_date)
+        current_date += delta
+
+    return date_list
 
 
 def parquet_cache_to_pandas(
