@@ -35,6 +35,7 @@ def get_and_validate_exchange(exchange_name: str):
 
 def download_ohlcv(symbol='BTC/USD', exchange='bitstamp', timeframes=['1d'], 
                    start_date=None, end_date=None):
+    # typehints. AI!
     """
     Download OHLCV data from specified exchange for given timeframes.
     
