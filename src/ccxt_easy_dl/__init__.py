@@ -127,6 +127,29 @@ def date_range_to_list(
     return date_list
 
 
+def get_cache_filepath(symbol: str, timeframe: str, exchange_name: str) -> Path:
+    """
+    Get the file path for cached OHLCV data.
+
+    Parameters
+    ----------
+    symbol : str
+        Trading pair symbol (e.g., 'BTC/USD')
+    timeframe : str
+        Timeframe of the data (e.g., '1d')
+    exchange_name : str
+        Name of the exchange (e.g., 'bitstamp')
+
+    Returns
+    -------
+    Path
+        Path object pointing to the cached file
+    """
+    cache_path = Path(CACHE_DIR) / exchange_name
+    filename = f"{symbol.replace('/', '')}.{timeframe}.parquet"
+    return cache_path / filename
+
+
 def parquet_cache_to_pandas(
     symbol: str, timeframe: str, exchange_name: str
 ) -> pd.DataFrame:
@@ -152,10 +175,7 @@ def parquet_cache_to_pandas(
     FileNotFoundError
         If the cached file does not exist
     """
-    # Create the expected file path -- turn this file path creation logic into a func AI!
-    cache_path = Path(CACHE_DIR) / exchange_name
-    filename = f"{symbol.replace('/', '')}.{timeframe}.parquet"
-    filepath = cache_path / filename
+    filepath = get_cache_filepath(symbol, timeframe, exchange_name)
 
     if not filepath.exists():
         return pd.DataFrame()
