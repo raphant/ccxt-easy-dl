@@ -70,9 +70,40 @@ def pandas_to_parquet_cache(symbol: str, timeframe: str, data: pd.DataFrame, exc
     
     return str(filepath)
 
-def parquet_cache_to_pandas(symbol, timeframe, data, exchange_name) -> pd.DataFrame:
-    # impl with typehints AI!
-    pass
+def parquet_cache_to_pandas(symbol: str, timeframe: str, exchange_name: str) -> pd.DataFrame:
+    """
+    Load cached OHLCV data from parquet file into pandas DataFrame.
+
+    Parameters
+    ----------
+    symbol : str
+        Trading pair symbol (e.g., 'BTC/USD')
+    timeframe : str
+        Timeframe of the data (e.g., '1d')
+    exchange_name : str
+        Name of the exchange (e.g., 'bitstamp')
+
+    Returns
+    -------
+    pd.DataFrame
+        OHLCV data loaded from cache
+
+    Raises
+    ------
+    FileNotFoundError
+        If the cached file does not exist
+    """
+    # Create the expected file path
+    cache_path = Path(CACHE_DIR) / exchange_name
+    filename = f"{symbol.replace('/', '')}.{timeframe}.parquet"
+    filepath = cache_path / filename
+
+    if not filepath.exists():
+        raise FileNotFoundError(f"No cached data found at {filepath}")
+
+    # Read and return the parquet file
+    df = pd.read_parquet(filepath)
+    return df
 def download_ohlcv(
     symbol: str = "BTC/USD",
     exchange: str = "bitstamp",
