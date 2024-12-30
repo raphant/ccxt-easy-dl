@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+from pathlib import Path
 import time
 
 import ccxt
@@ -38,12 +39,36 @@ def get_and_validate_exchange(exchange_name: str):
     return exchange
 
 
-def pandas_to_parquet_cache(symbol: str, timeframe: str, data: pd.DataFrame):
+def pandas_to_parquet_cache(symbol: str, timeframe: str, data: pd.DataFrame, exchange_name: str):
     """
-    Pandas to parquet table to CACHE_DIR / exchange_name / "{symbol}.{timeframe}.parquet"
-    """
+    Save pandas DataFrame to parquet file in cache directory.
 
-    # AI!
+    Parameters
+    ----------
+    symbol : str
+        Trading pair symbol (e.g., 'BTC/USD')
+    timeframe : str
+        Timeframe of the data (e.g., '1d')
+    data : pd.DataFrame
+        OHLCV data to save
+    exchange_name : str
+        Name of the exchange (e.g., 'bitstamp')
+
+    Returns
+    -------
+    str
+        Path to the saved parquet file
+    """
+    # Create cache directory if it doesn't exist
+    cache_path = Path(CACHE_DIR) / exchange_name
+    cache_path.mkdir(parents=True, exist_ok=True)
+    
+    # Create filename and save
+    filename = f"{symbol.replace('/', '')}.{timeframe}.parquet"
+    filepath = cache_path / filename
+    data.to_parquet(filepath)
+    
+    return str(filepath)
 
 
 def download_ohlcv(
