@@ -99,7 +99,7 @@ def date_range_to_list(
     ValueError
         If timeframe is not in TIMEFRAMES
     """
-    # make sure this is in UTC. AI!
+    # make sure everything is converted to UTC. AI!
     if timeframe not in TIMEFRAMES:
         raise ValueError(f"Unsupported timeframe: {timeframe}")
 
