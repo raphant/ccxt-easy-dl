@@ -70,7 +70,9 @@ def pandas_to_parquet_cache(symbol: str, timeframe: str, data: pd.DataFrame, exc
     
     return str(filepath)
 
-
+def parquet_cache_to_pandas(symbol, timeframe, data, exchange_name) -> pd.DataFrame:
+    # impl with typehints AI!
+    pass
 def download_ohlcv(
     symbol: str = "BTC/USD",
     exchange: str = "bitstamp",
