@@ -9,6 +9,7 @@ from appdirs import user_cache_dir
 
 # Get platform-specific cache directory
 CACHE_DIR = user_cache_dir("ccxt_easy_dl", version="v1")
+TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"]
 
 
 def get_and_validate_exchange(exchange_name: str):
@@ -39,7 +40,9 @@ def get_and_validate_exchange(exchange_name: str):
     return exchange
 
 
-def pandas_to_parquet_cache(symbol: str, timeframe: str, data: pd.DataFrame, exchange_name: str):
+def pandas_to_parquet_cache(
+    symbol: str, timeframe: str, data: pd.DataFrame, exchange_name: str
+):
     """
     Save pandas DataFrame to parquet file in cache directory.
 
@@ -62,15 +65,27 @@ def pandas_to_parquet_cache(symbol: str, timeframe: str, data: pd.DataFrame, exc
     # Create cache directory if it doesn't exist
     cache_path = Path(CACHE_DIR) / exchange_name
     cache_path.mkdir(parents=True, exist_ok=True)
-    
+
     # Create filename and save
     filename = f"{symbol.replace('/', '')}.{timeframe}.parquet"
     filepath = cache_path / filename
     data.to_parquet(filepath)
-    
+
     return str(filepath)
 
-def parquet_cache_to_pandas(symbol: str, timeframe: str, exchange_name: str) -> pd.DataFrame:
+
+def date_range_to_list(
+    start_date: datetime, end_date: datetime, timeframe: str
+) -> list[datetime]:
+    """
+    takes a daterange and turns it into a list of dates in intervals of timeframe. `timeframe` is a one of the supported TIMEFRAMES above.
+    """
+    # complete this AI!
+
+
+def parquet_cache_to_pandas(
+    symbol: str, timeframe: str, exchange_name: str
+) -> pd.DataFrame:
     """
     Load cached OHLCV data from parquet file into pandas DataFrame.
 
@@ -99,14 +114,16 @@ def parquet_cache_to_pandas(symbol: str, timeframe: str, exchange_name: str) -> 
     filepath = cache_path / filename
 
     if not filepath.exists():
-        raise FileNotFoundError(f"No cached data found at {filepath}")
+        return pd.DataFrame()
 
     # Read and return the parquet file
-    df = pd.read_parquet(filepath)
+    df = pd.read_parquet(filepath, parse_dates=["date"])
     return df
+
+
 def download_ohlcv(
     symbol: str = "BTC/USD",
-    exchange: str = "bitstamp",
+    exchange_name: str = "bitstamp",
     timeframes: list[str] = ["1d"],
     start_date: datetime | None = None,
     end_date: datetime | None = None,
@@ -135,8 +152,9 @@ def download_ohlcv(
     dict[str, pd.DataFrame]
         Dictionary mapping each timeframe to its corresponding OHLCV DataFrame
     """
+    assert all([tf in TIMEFRAMES for tf in timeframes])
     # Initialize exchange
-    exchange = get_and_validate_exchange(exchange)
+    exchange = get_and_validate_exchange(exchange_name)
     results = {}
 
     # Set default dates if not provided
@@ -150,6 +168,8 @@ def download_ohlcv(
     until = int(end_date.timestamp() * 1000)
 
     for timeframe in timeframes:
+        existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
+        date_range_list = date_range_to_list(start_date, end_date, timeframe)
         print(f"Downloading {symbol} data for {timeframe} timeframe...")
 
         all_ohlcv = []
