@@ -4,8 +4,10 @@ import time
 import ccxt
 import pandas as pd
 import pyarrow.parquet as pq
+from appdirs import user_cache_dir
 
-# get cache folder dir using appdirs AI!
+# Get platform-specific cache directory
+CACHE_DIR = user_cache_dir("ccxt_easy_dl", "ccxt_easy_dl")
 
 def get_and_validate_exchange(exchange_name: str):
     """
