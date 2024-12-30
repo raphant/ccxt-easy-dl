@@ -62,13 +62,9 @@ def pandas_to_parquet_cache(
     str
         Path to the saved parquet file
     """
+    filepath = get_cache_filepath(symbol, timeframe, exchange_name)
     # Create cache directory if it doesn't exist
-    cache_path = Path(CACHE_DIR) / exchange_name
-    cache_path.mkdir(parents=True, exist_ok=True)
-
-    # Create filename and save
-    filename = f"{symbol.replace('/', '')}.{timeframe}.parquet"
-    filepath = cache_path / filename
+    filepath.parent.mkdir(parents=True, exist_ok=True)
     data.to_parquet(filepath)
 
     return str(filepath)
