@@ -38,7 +38,7 @@ def download_ohlcv(
     timeframes: list[str] = ['1d'],
     start_date: datetime | None = None,
     end_date: datetime | None = None,
-    export: bool = False # support this. AI!
+    export: bool = False
 ) -> dict[str, pd.DataFrame]:
     """
     Download OHLCV data from specified exchange for given timeframes.
@@ -55,6 +55,8 @@ def download_ohlcv(
         Start date for data download. If None, defaults to 30 days before end_date
     end_date : datetime, optional
         End date for data download. If None, defaults to current time
+    export : bool, default=False
+        If True, saves each timeframe's data to a CSV file
         
     Returns
     -------
@@ -115,5 +117,11 @@ def download_ohlcv(
             # Store DataFrame in results dictionary
             results[timeframe] = df
             print(f"Downloaded {timeframe} data")
+            
+            # Export to CSV if requested
+            if export:
+                filename = f"{exchange}_{symbol.replace('/', '')}_{timeframe}.csv"
+                df.to_csv(filename)
+                print(f"Exported {filename}")
             
     return results
