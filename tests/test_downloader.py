@@ -8,20 +8,21 @@ import pandas as pd
 
 def download_ohlcv(symbol='BTC/USD', exchange='bitstamp', timeframes=['1d'], 
                    start_date=None, end_date=None):
-    # align the docstrings AI!
     """
-    Download OHLCV data from Bitstamp for specified timeframes
+    Download OHLCV data from specified exchange for given timeframes.
     
-    Parameters:
-    -----------
-    symbol : str
-        Trading pair to download (default: 'BTC/USD')
-    timeframes : list
-        List of timeframes to download (default: ['5m', '15m', '1h', '1d'])
+    Parameters
+    ----------
+    symbol : str, default='BTC/USD'
+        Trading pair to download
+    exchange : str, default='bitstamp'
+        Name of the exchange to download from
+    timeframes : list, default=['1d']
+        List of timeframes to download
     start_date : datetime, optional
-        Start date for data download
+        Start date for data download. If None, defaults to 30 days before end_date
     end_date : datetime, optional
-        End date for data download
+        End date for data download. If None, defaults to current time
     """
     
     # Initialize Bitstamp exchange
