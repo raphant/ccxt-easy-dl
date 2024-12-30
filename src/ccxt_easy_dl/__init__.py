@@ -256,7 +256,8 @@ def download_ohlcv(
         existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
         diff = get_daterange_and_df_diff(date_range_list, existing_df)
         if not diff:
-            results[timeframe] = existing_df # slice only the needed date ranges AI!
+            # Slice the existing DataFrame to only include the requested date range
+            results[timeframe] = existing_df.loc[start_date:end_date]
         print(f"Downloading {symbol} data for {timeframe} timeframe...")
 
         all_ohlcv = []
