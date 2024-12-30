@@ -8,8 +8,29 @@ import pandas as pd
 def get_and_validate_exchange(exchange_name: str):
     """
     Ensure that the exchange exists in ccxt.exchanges and return the instance
+    
+    Parameters
+    ----------
+    exchange_name : str
+        Name of the exchange to validate and initialize
+        
+    Returns
+    -------
+    ccxt.Exchange
+        Configured exchange instance
+        
+    Raises
+    ------
+    ValueError
+        If exchange_name is not found in ccxt.exchanges
     """
-    # AI!
+    if exchange_name not in ccxt.exchanges:
+        raise ValueError(f"Exchange '{exchange_name}' not found in ccxt.exchanges")
+        
+    exchange = getattr(ccxt, exchange_name)({
+        'enableRateLimit': True  # required by the exchange
+    })
+    return exchange
 
 
 def download_ohlcv(symbol='BTC/USD', exchange='bitstamp', timeframes=['1d'], 
@@ -31,11 +52,8 @@ def download_ohlcv(symbol='BTC/USD', exchange='bitstamp', timeframes=['1d'],
         End date for data download. If None, defaults to current time
     """
     
-    # Initialize Bitstamp exchange
-    assert exchange in ccxt.exchanges, "Exchange not found in exchanges"
-    exchange = ccxt.bitstamp({
-        'enableRateLimit': True,  # required by the exchange
-    })
+    # Initialize exchange
+    exchange = get_and_validate_exchange(exchange)
     
     # Set default dates if not provided
     if not end_date:
