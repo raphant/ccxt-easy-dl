@@ -33,9 +33,13 @@ def get_and_validate_exchange(exchange_name: str):
     return exchange
 
 
-def download_ohlcv(symbol='BTC/USD', exchange='bitstamp', timeframes=['1d'], 
-                   start_date=None, end_date=None):
-    # typehints. AI!
+def download_ohlcv(
+    symbol: str = 'BTC/USD',
+    exchange: str = 'bitstamp',
+    timeframes: list[str] = ['1d'],
+    start_date: datetime.datetime | None = None,
+    end_date: datetime.datetime | None = None
+) -> None:
     """
     Download OHLCV data from specified exchange for given timeframes.
     
@@ -45,7 +49,7 @@ def download_ohlcv(symbol='BTC/USD', exchange='bitstamp', timeframes=['1d'],
         Trading pair to download
     exchange : str, default='bitstamp'
         Name of the exchange to download from
-    timeframes : list, default=['1d']
+    timeframes : list[str], default=['1d']
         List of timeframes to download
     start_date : datetime, optional
         Start date for data download. If None, defaults to 30 days before end_date
