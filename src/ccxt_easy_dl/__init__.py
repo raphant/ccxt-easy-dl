@@ -83,25 +83,30 @@ def date_range_to_list(
     Parameters
     ----------
     start_date : datetime
-        Start of the date range
+        Start of the date range (will be converted to UTC if not already)
     end_date : datetime
-        End of the date range
+        End of the date range (will be converted to UTC if not already)
     timeframe : str
         Timeframe interval (must be one of TIMEFRAMES)
 
     Returns
     -------
     list[datetime]
-        List of datetime objects at the specified intervals
+        List of datetime objects at the specified intervals in UTC
 
     Raises
     ------
     ValueError
         If timeframe is not in TIMEFRAMES
     """
-    # make sure everything is converted to UTC. AI!
     if timeframe not in TIMEFRAMES:
         raise ValueError(f"Unsupported timeframe: {timeframe}")
+
+    # Convert input dates to UTC if they have timezone info
+    if start_date.tzinfo is not None:
+        start_date = start_date.astimezone(tz=None).replace(tzinfo=None)
+    if end_date.tzinfo is not None:
+        end_date = end_date.astimezone(tz=None).replace(tzinfo=None)
 
     # Convert timeframe to timedelta
     timeframe_map = {
