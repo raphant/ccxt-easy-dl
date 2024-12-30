@@ -3,6 +3,9 @@ import time
 
 import ccxt
 import pandas as pd
+import pyarrow.parquet as pq
+
+# get cache folder dir using appdirs AI!
 
 def get_and_validate_exchange(exchange_name: str):
     """
