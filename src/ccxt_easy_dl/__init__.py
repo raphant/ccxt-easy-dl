@@ -170,9 +170,36 @@ def parquet_cache_to_pandas(
 
 def get_daterange_and_df_diff(date_range: list[datetime], df: pd.DataFrame) -> list[datetime]:
     """
-    get a list of dates that are in dante_range and not in df. May need to convert df 'dates' col to datetime.
+    Get a list of dates that are in date_range but not in the DataFrame.
+
+    Parameters
+    ----------
+    date_range : list[datetime]
+        List of datetime objects to check
+    df : pd.DataFrame
+        DataFrame containing a 'timestamp' column to compare against
+
+    Returns
+    -------
+    list[datetime]
+        List of datetime objects that are in date_range but not in df
     """
-    # let's do this AI!
+    if df.empty:
+        return date_range
+        
+    # Ensure the DataFrame has a datetime index
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+        
+    # Convert both to sets of dates (without time) for comparison
+    date_range_set = {dt.date() for dt in date_range}
+    df_dates_set = {dt.date() for dt in df.index}
+    
+    # Find dates in range that aren't in the DataFrame
+    missing_dates = date_range_set - df_dates_set
+    
+    # Convert back to datetime objects matching the original date_range
+    return [dt for dt in date_range if dt.date() in missing_dates]
 def download_ohlcv(
     symbol: str = "BTC/USD",
     exchange_name: str = "bitstamp",
