@@ -6,13 +6,14 @@ import ccxt
 import pandas as pd
 import pyarrow.parquet as pq
 from appdirs import user_cache_dir
+from loguru import logger
 
 # Get platform-specific cache directory
 CACHE_DIR = user_cache_dir("ccxt_easy_dl", version="v1")
 TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"]
 
 
-def get_and_validate_exchange(exchange_name: str):
+def get_and_validate_exchange(exchange_name: str) -> ccxt.Exchange:
     """
     Ensure that the exchange exists in ccxt.exchanges and return the instance
 
@@ -181,7 +182,7 @@ def parquet_cache_to_pandas(
         return pd.DataFrame()
 
     # Read and return the parquet file
-    df = pd.read_parquet(filepath, parse_dates=["date"])
+    df = pd.read_parquet(filepath)
     return df
 
 
@@ -221,6 +222,37 @@ def get_daterange_and_df_diff(
     return [dt for dt in date_range if dt.date() in missing_dates]
 
 
+def fetch_data_from_exchange(symbol, exchange, timeframe, since, until):
+    all_ohlcv = []
+    current_since = since
+
+    while current_since < until:
+        try:
+            # Fetch OHLCV data
+            ohlcv = exchange.fetch_ohlcv(
+                symbol,
+                timeframe=timeframe,
+                since=current_since,
+                limit=1000,  # Maximum number of candles per request
+            )
+
+            if not ohlcv:
+                break
+
+            all_ohlcv.extend(ohlcv)
+
+            # Update the current_since for next iteration
+            current_since = ohlcv[-1][0] + 1
+
+            # Rate limiting
+            time.sleep(exchange.rateLimit / 1000)  # Convert to seconds
+
+        except Exception as e:
+            print(f"Error downloading {timeframe} data: {str(e)}")
+            break
+    return all_ohlcv
+
+
 def download_ohlcv(
     symbol: str = "BTC/USD",
     exchange_name: str = "bitstamp",
@@ -252,6 +284,7 @@ def download_ohlcv(
     dict[str, pd.DataFrame]
         Dictionary mapping each timeframe to its corresponding OHLCV DataFrame
     """
+    # change all prints in the func to loguru.debug AI!
     assert all([tf in TIMEFRAMES for tf in timeframes])
     # Initialize exchange
     exchange = get_and_validate_exchange(exchange_name)
@@ -270,6 +303,7 @@ def download_ohlcv(
         max_date = end_date
         date_range_list = date_range_to_list(start_date, end_date, timeframe)
         existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
+        print("dtypes and index for existing df:", existing_df.dtypes, existing_df.index)
         if not existing_df.empty:
             date_diff = get_daterange_and_df_diff(date_range_list, existing_df)
             if not date_diff:
@@ -280,35 +314,12 @@ def download_ohlcv(
             max_date = max(date_diff)
             until = min_date.timestamp() * 1000
             since = max_date.timestamp() * 1000
-        print(f"Downloading {symbol} data for {timeframe} timeframe from {min_date} to {max_date}...")
+        print(
+            f"Downloading {symbol} data for {timeframe} timeframe from {min_date} to {max_date}..."
+        )
 
-        all_ohlcv = []
-        current_since = since
-
-        while current_since < until:
-            try:
-                # Fetch OHLCV data
-                ohlcv = exchange.fetch_ohlcv(
-                    symbol,
-                    timeframe=timeframe,
-                    since=current_since,
-                    limit=1000,  # Maximum number of candles per request
-                )
-
-                if not ohlcv:
-                    break
-
-                all_ohlcv.extend(ohlcv)
-
-                # Update the current_since for next iteration
-                current_since = ohlcv[-1][0] + 1
-
-                # Rate limiting
-                time.sleep(exchange.rateLimit / 1000)  # Convert to seconds
-
-            except Exception as e:
-                print(f"Error downloading {timeframe} data: {str(e)}")
-                break
+        all_ohlcv = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
+        print("Downloaded ohlcv from exchange", all_ohlcv)
 
         if all_ohlcv:
             # Convert to DataFrame
@@ -320,7 +331,6 @@ def download_ohlcv(
             df.set_index("timestamp", inplace=True)
             cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
             print(f"{symbol}'s {timeframe} data has been saved to {cache_path}")
-
 
             # Store DataFrame in results dictionary
             results[timeframe] = df
