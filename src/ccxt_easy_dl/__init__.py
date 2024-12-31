@@ -303,7 +303,7 @@ def download_ohlcv(
         max_date = end_date
         date_range_list = date_range_to_list(start_date, end_date, timeframe)
         existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
-        print("dtypes and index for existing df:", existing_df.dtypes, existing_df.index)
+        logger.debug("dtypes and index for existing df: %s %s", existing_df.dtypes, existing_df.index)
         if not existing_df.empty:
             date_diff = get_daterange_and_df_diff(date_range_list, existing_df)
             if not date_diff:
@@ -314,12 +314,10 @@ def download_ohlcv(
             max_date = max(date_diff)
             until = min_date.timestamp() * 1000
             since = max_date.timestamp() * 1000
-        print(
-            f"Downloading {symbol} data for {timeframe} timeframe from {min_date} to {max_date}..."
-        )
+        logger.debug("Downloading %s data for %s timeframe from %s to %s...", symbol, timeframe, min_date, max_date)
 
         all_ohlcv = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
-        print("Downloaded ohlcv from exchange", all_ohlcv)
+        logger.debug("Downloaded ohlcv from exchange: %s", all_ohlcv)
 
         if all_ohlcv:
             # Convert to DataFrame
@@ -330,16 +328,16 @@ def download_ohlcv(
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             df.set_index("timestamp", inplace=True)
             cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
-            print(f"{symbol}'s {timeframe} data has been saved to {cache_path}")
+            logger.debug("%s's %s data has been saved to %s", symbol, timeframe, cache_path)
 
             # Store DataFrame in results dictionary
             results[timeframe] = df
-            print(f"Downloaded {timeframe} data")
+            logger.debug("Downloaded %s data", timeframe)
 
             # Export to CSV if requested
             if export:
                 filename = f"{exchange}_{symbol.replace('/', '')}_{timeframe}.csv"
                 df.to_csv(filename)
-                print(f"Exported {filename}")
+                logger.debug("Exported %s", filename)
 
     return results
