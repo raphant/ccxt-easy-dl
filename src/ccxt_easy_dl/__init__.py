@@ -10,6 +10,7 @@ from appdirs import user_cache_dir
 from rich.logging import RichHandler
 from rich.console import Console
 from rich import print as rprint
+from alive_progress import alive_bar
 
 # Configure rich logging
 FORMAT = "%(message)s"
@@ -109,11 +110,72 @@ def pandas_to_parquet_cache(
     return str(filepath)
 
 
+def round_down_start_date(start_date: datetime, timeframe: str) -> datetime:
+    """
+    Round down a datetime to the nearest timeframe interval.
+    For example:
+    - For 1m: rounds to the start of the minute
+    - For 1h: rounds to the start of the hour
+    - For 1d: rounds to the start of the day
+    - For 1w: rounds to the start of the week (Monday)
+
+    Parameters
+    ----------
+    start_date : datetime
+        The datetime to round down
+    timeframe : str
+        Timeframe interval (must be one of TIMEFRAMES)
+
+    Returns
+    -------
+    datetime
+        The rounded down datetime
+
+    Raises
+    ------
+    ValueError
+        If timeframe is not in TIMEFRAMES
+    """
+    if timeframe not in TIMEFRAMES:
+        raise ValueError(f"Unsupported timeframe: {timeframe}")
+
+    if timeframe == "1m":
+        return start_date.replace(second=0, microsecond=0)
+    elif timeframe == "5m":
+        minutes = start_date.minute - (start_date.minute % 5)
+        return start_date.replace(minute=minutes, second=0, microsecond=0)
+    elif timeframe == "15m":
+        minutes = start_date.minute - (start_date.minute % 15)
+        return start_date.replace(minute=minutes, second=0, microsecond=0)
+    elif timeframe == "30m":
+        minutes = start_date.minute - (start_date.minute % 30)
+        return start_date.replace(minute=minutes, second=0, microsecond=0)
+    elif timeframe == "1h":
+        return start_date.replace(minute=0, second=0, microsecond=0)
+    elif timeframe == "4h":
+        hours = start_date.hour - (start_date.hour % 4)
+        return start_date.replace(hour=hours, minute=0, second=0, microsecond=0)
+    elif timeframe == "1d":
+        return start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif timeframe == "1w":
+        # For weekly, round down to Monday of the week
+        days_since_monday = start_date.weekday()  # Monday is 0
+        return (start_date - timedelta(days=days_since_monday)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+
+
 def date_range_to_list(
     start_date: datetime, end_date: datetime, timeframe: str
 ) -> list[datetime]:
     """
     Generate a list of datetime objects at intervals based on the timeframe.
+    The start_date will be rounded down to the nearest timeframe interval.
+    For example:
+    - For 1m: rounds to the start of the minute
+    - For 1h: rounds to the start of the hour
+    - For 1d: rounds to the start of the day
+    - For 1w: rounds to the start of the week (Monday)
 
     Parameters
     ----------
@@ -142,6 +204,9 @@ def date_range_to_list(
         start_date = start_date.astimezone(tz=None).replace(tzinfo=None)
     if end_date.tzinfo is not None:
         end_date = end_date.astimezone(tz=None).replace(tzinfo=None)
+
+    # Round down start_date based on timeframe
+    logger.debug("🔍 Rounded start_date: %s", start_date)
 
     # Convert timeframe to timedelta
     timeframe_map = {
@@ -286,47 +351,129 @@ def fetch_data_from_exchange(symbol: str, exchange: ccxt.Exchange, timeframe: st
         OHLCV data with datetime index and columns [open, high, low, close, volume]
     """
     all_ohlcv = []
-    current_since = since
+    
+    # Calculate total number of iterations needed
+    timeframe_ms = {
+        "1m": 60000, "5m": 300000, "15m": 900000, "30m": 1800000,
+        "1h": 3600000, "4h": 14400000, "1d": 86400000, "1w": 604800000
+    }
+    # Adjust since by subtracting one timeframe interval to make it inclusive
+    current_since = since - timeframe_ms[timeframe]
+    
+    ms_per_iteration = timeframe_ms[timeframe] * 1000  # 1000 candles per request
+    total_iterations = max(1, (until - current_since) // ms_per_iteration + 1)
+    
+    with alive_bar(total_iterations, title=f"Fetching {symbol} {timeframe} data", spinner="waves") as bar:
+        while current_since < until:
+            try:
+                # Fetch OHLCV data
+                ohlcv = exchange.fetch_ohlcv(
+                    symbol,
+                    timeframe=timeframe,
+                    since=current_since,
+                    limit=1000,  # Maximum number of candles per request
+                )
 
-    while current_since < until:
-        try:
-            # Fetch OHLCV data
-            ohlcv = exchange.fetch_ohlcv(
-                symbol,
-                timeframe=timeframe,
-                since=current_since,
-                limit=1000,  # Maximum number of candles per request
-            )
+                if not ohlcv:
+                    break
 
-            if not ohlcv:
+                all_ohlcv.extend(ohlcv)
+
+                # Update the current_since for next iteration
+                current_since = ohlcv[-1][0] + 1
+
+                # Rate limiting
+                time.sleep(exchange.rateLimit / 1000)  # Convert to seconds
+                bar()
+
+            except Exception as e:
+                print(f"Error downloading {timeframe} data: {str(e)}")
                 break
 
-            all_ohlcv.extend(ohlcv)
-
-            # Update the current_since for next iteration
-            current_since = ohlcv[-1][0] + 1
-
-            # Rate limiting
-            time.sleep(exchange.rateLimit / 1000)  # Convert to seconds
-
-        except Exception as e:
-            print(f"Error downloading {timeframe} data: {str(e)}")
-            break
     if not all_ohlcv:
         return pd.DataFrame()
         
-    # Convert to DataFrame
-    df = pd.DataFrame(
-        all_ohlcv,
-        columns=["timestamp", "open", "high", "low", "close", "volume"],
-    )
+    # Define all possible columns
+    columns = ["timestamp", "open", "high", "low", "close", "volume"]
     
-    # Convert timestamp to datetime index
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-    df.set_index("timestamp", inplace=True)
+    # Create DataFrame with all columns
+    df = pd.DataFrame(all_ohlcv, columns=columns[:len(all_ohlcv[0])])
+    
+    # Set timestamp as index
+    if "timestamp" in df.columns:
+        df.set_index("timestamp", inplace=True)
+        df.index = pd.to_datetime(df.index, unit="ms")
     
     return df
 
+
+def _prepare_dates(start_date: datetime | None, end_date: datetime | None) -> tuple[datetime, datetime]:
+    """Prepare start and end dates, applying defaults if needed."""
+    if not end_date:
+        end_date = datetime.now()
+    if not start_date:
+        start_date = end_date - timedelta(days=30)
+    return start_date, end_date
+
+def _handle_existing_data(
+    existing_df: pd.DataFrame,
+    date_range_list: list[datetime],
+    working_start_date: datetime,
+    end_date: datetime
+) -> tuple[pd.DataFrame | None, tuple[int, int] | None]:
+    """Handle existing data and determine if new data needs to be fetched.
+    
+    Returns:
+    --------
+    tuple[pd.DataFrame | None, tuple[int, int] | None]
+        - DataFrame if cached data can be used directly, None if new data needed
+        - Tuple of (since, until) timestamps if new data needed, None otherwise
+    """
+    if existing_df.empty:
+        return None, None
+        
+    date_diff = get_daterange_and_df_diff(date_range_list, existing_df)
+    logger.debug("📅 Date differences: %s", date_diff)
+    
+    if not date_diff:
+        # Use existing data
+        mask = (existing_df.index >= working_start_date) & (existing_df.index <= end_date)
+        return existing_df[mask], None
+        
+    # Need to fetch new data
+    min_date = min(date_diff)
+    max_date = max(date_diff)
+    since = int(min_date.timestamp() * 1000)
+    until = int(max_date.timestamp() * 1000)
+    return None, (since, until)
+
+def _merge_and_save_data(
+    new_df: pd.DataFrame,
+    existing_df: pd.DataFrame,
+    symbol: str,
+    timeframe: str,
+    exchange_name: str,
+    working_start_date: datetime,
+    end_date: datetime,
+    export: bool = False
+) -> pd.DataFrame:
+    """Merge new and existing data, save to cache, and return final DataFrame."""
+    if not existing_df.empty:
+        logger.debug("🔄 Merging data - existing: %s, new: %s", existing_df.shape, new_df.shape)
+        df = pd.concat([existing_df, new_df])
+        df = df.drop_duplicates()
+    else:
+        df = new_df
+
+    cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
+    logger.debug("💾 Saved to cache: %s", cache_path)
+
+    if export:
+        filename = f"{exchange_name}_{symbol.replace('/', '')}_{timeframe}.csv"
+        df.to_csv(filename)
+        logger.debug("📁 Exported to %s", filename)
+
+    return df.loc[working_start_date:end_date]
 
 def download_ohlcv(
     symbol: str = "BTC/USD",
@@ -336,93 +483,43 @@ def download_ohlcv(
     end_date: datetime | None = None,
     export: bool = False,
 ) -> dict[str, pd.DataFrame]:
-    """
-    Download OHLCV data from specified exchange for given timeframes.
-
-    Parameters
-    ----------
-    symbol : str, default='BTC/USD'
-        Trading pair to download
-    exchange : str, default='bitstamp'
-        Name of the exchange to download from
-    timeframes : list[str], default=['1d']
-        List of timeframes to download
-    start_date : datetime, optional
-        Start date for data download. If None, defaults to 30 days before end_date
-    end_date : datetime, optional
-        End date for data download. If None, defaults to current time
-    export : bool, default=False
-        If True, saves each timeframe's data to a CSV file
-
-    Returns
-    -------
-    dict[str, pd.DataFrame]
-        Dictionary mapping each timeframe to its corresponding OHLCV DataFrame
-    """
+    """Download OHLCV data from specified exchange for given timeframes."""
     assert all([tf in TIMEFRAMES for tf in timeframes])
-    # Initialize exchange
     exchange = get_and_validate_exchange(exchange_name)
     results = {}
-
-    # Set default dates if not provided
-    if not end_date:
-        end_date = datetime.now()
-    if not start_date:
-        start_date = end_date - timedelta(days=30)  # Default to last 30 days
+    
+    start_date, end_date = _prepare_dates(start_date, end_date)
 
     for timeframe in timeframes:
-        since = int(start_date.timestamp() * 1000)
-        until = int(end_date.timestamp() * 1000)
-        min_date = start_date
-        max_date = end_date
-        date_range_list = date_range_to_list(start_date, end_date, timeframe)
-        logger.debug("📋 Date range list: %s", date_range_list)
+        working_start_date = round_down_start_date(start_date, timeframe)
+        date_range_list = date_range_to_list(working_start_date, end_date, timeframe)
+        
         existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
-        logger.debug("📊 DataFrame info - dtypes: %s, index: %s", existing_df.dtypes, existing_df.index)
-        if not existing_df.empty:
-            date_diff = get_daterange_and_df_diff(date_range_list, existing_df)
-            logger.debug("📅 Date differences: %s", date_diff)
-            if not date_diff:
-                # Slice the existing DataFrame to only include the requested date range
-                results[timeframe] = existing_df.loc[start_date:end_date]
-                continue
-            min_date = min(date_diff)
-            max_date = max(date_diff)
-            since = min_date.timestamp() * 1000
-            until = max_date.timestamp() * 1000
-        logger.debug("⬇️  Downloading %s data for %s timeframe from %s to %s...", symbol, timeframe, min_date, max_date)
-
-        df = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
-        logger.debug("📈 Downloaded OHLCV data: %s", df)
-
-        # if existing_df is not empty, then let's merge the two dataframes
-        if not existing_df.empty:
-            logger.debug("🔄 Merging existing data (shape: %s) with new data (shape: %s)", existing_df.shape, df.shape)
-            logger.debug("📅 Existing data date range: %s to %s", 
-                        existing_df.index.min() if not existing_df.empty else None,
-                        existing_df.index.max() if not existing_df.empty else None)
-            logger.debug("📅 New data date range: %s to %s",
-                        df.index.min() if not df.empty else None,
-                        df.index.max() if not df.empty else None)
-
-        df = pd.concat([existing_df, df])
-        logger.debug("✨ Merged data shape: %s", df.shape)
-        logger.debug("📅 Final date range: %s to %s", 
-                    df.index.min() if not df.empty else None,
-                    df.index.max() if not df.empty else None)
-
-        cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
-        logger.debug("💾 %s's %s data has been saved to %s", symbol, timeframe, cache_path)
-
-        # Store DataFrame in results dictionary
-        results[timeframe] = df
-        logger.debug("✅ Downloaded %s data", timeframe)
-
-        # Export to CSV if requested
-        if export:
-            filename = f"{exchange}_{symbol.replace('/', '')}_{timeframe}.csv"
-            df.to_csv(filename)
-            logger.debug("📁 Exported to %s", filename)
+        cached_df, time_range = _handle_existing_data(
+            existing_df, date_range_list, working_start_date, end_date
+        )
+        
+        if cached_df is not None:
+            results[timeframe] = cached_df
+            continue
+            
+        if time_range:
+            since, until = time_range
+        else:
+            since = int(working_start_date.timestamp() * 1000)
+            until = int(end_date.timestamp() * 1000)
+            
+        logger.debug("⬇️  Downloading %s %s from %s to %s...", 
+                    symbol, timeframe, 
+                    datetime.fromtimestamp(since/1000),
+                    datetime.fromtimestamp(until/1000))
+                    
+        new_df = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
+        
+        results[timeframe] = _merge_and_save_data(
+            new_df, existing_df, symbol, timeframe, exchange_name,
+            working_start_date, end_date, export
+        )
 
     return results
 
@@ -431,6 +528,7 @@ def download_multiple_ohlcv(
     timeframes: list[str],
     start_date: datetime | None = None,
     end_date: datetime | None = None,
+    exchange_name: str = "bitstamp",
     export: bool = False,
 ) -> dict[str, dict[str, pd.DataFrame]]:
     """
@@ -446,6 +544,8 @@ def download_multiple_ohlcv(
         Start date for data download. If None, defaults to 30 days before end_date
     end_date : datetime, optional
         End date for data download. If None, defaults to current time
+    exchange_name : str, default='bitstamp'
+        Name of the exchange to download from
     export : bool, default=False
         If True, saves each timeframe's data to a CSV file
 
@@ -463,6 +563,7 @@ def download_multiple_ohlcv(
             timeframes=timeframes,
             start_date=start_date,
             end_date=end_date,
+            exchange_name=exchange_name,
             export=export
         )
         results[symbol] = symbol_data

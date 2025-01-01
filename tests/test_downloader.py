@@ -3,6 +3,7 @@ import tempfile
 import shutil
 from pathlib import Path
 import logging
+import rich.logging
 
 import pytest
 import pandas as pd
@@ -16,8 +17,11 @@ from ccxt_easy_dl import (
     set_cache_dir,
 )
 
-# Set ccxt_easy_dl logger to debug level
-logging.getLogger("ccxt_easy_dl").setLevel(logging.DEBUG)
+# Update the logging configuration
+logger = logging.getLogger("ccxt_easy_dl")
+logger.setLevel(logging.DEBUG)
+rich_handler = rich.logging.RichHandler(rich_tracebacks=True)
+logger.addHandler(rich_handler)
 
 exchange_name = "bitstamp"
 symbol = "BTC/USD"
@@ -177,8 +181,12 @@ def test_download(temp_cache_dir):
     start_date = datetime.now() - timedelta(days=7)
     end_date = datetime.now() - timedelta(days=1)
     
+    # Add debug logging for dates
+    logger.debug(f"🕒 Test date range: {start_date} to {end_date}")
+    
     # Create expected date range
     expected_dates = date_range_to_list(start_date, end_date, timeframe)
+    logger.debug(f"📅 Expected dates: {expected_dates[:3]}... (total: {len(expected_dates)})")
     
     data = download_ohlcv(
         symbol=symbol,
