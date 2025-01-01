@@ -8,6 +8,7 @@ import pytest
 import pandas as pd
 from ccxt_easy_dl import (
     date_range_to_list,
+    download_multiple_ohlcv,
     download_ohlcv,
     get_and_validate_exchange,
     get_cache_filepath,
@@ -197,8 +198,8 @@ def test_download_multiple_coins(temp_cache_dir):
     end_date = datetime.now() - timedelta(days=1)
     
     # Download data for multiple symbols
-    data = download_ohlcv(
-        symbol=symbols,
+    data = download_multiple_ohlcv(
+        symbols=symbols,
         start_date=start_date,
         end_date=end_date,
         timeframes=[timeframe],
