@@ -1,0 +1,46 @@
+[project]
+name = "ccxt-easy-dl"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Raphael", email = "raphaelnanje@proton.me" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "ccxt>=4.2.15",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "typing-extensions>=4.9.0",
+    "pyarrow>=15.0.0",
+    "filelock>=3.13.0",
+    "rich>=13.9.4",
+    "urllib3==1.26.6",
+    "appdirs>=1.4.4",
+    "loguru>=0.7.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
+    "pytest-cov>=4.1.0"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = ""
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+
+[tool.uv.sources]
+ccxt-easy-dl = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ccxt-easy-dl",
+]

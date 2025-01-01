@@ -18,7 +18,8 @@ def test_download():
     timeframe = "1d"
     data = download_ohlcv(
         symbol=symbol,
-        start_date=datetime.now() - timedelta(days=3),
+        start_date=(datetime.now() - timedelta(days=4)),
+        end_date=(datetime.now() - timedelta(days=1)),
         timeframes=[timeframe],
     )
     assert timeframe in data
@@ -33,6 +34,7 @@ def test_caching():
 def sample_ohlcv_df():
     # Create sample OHLCV data for 3 days
     dates = pd.date_range(start='2023-01-01', periods=3, freq='D')
+    assert len(dates) == 3
     data = {
         'open': [40000, 41000, 42000],
         'high': [42000, 43000, 44000],
@@ -55,4 +57,5 @@ def test_get_daterange_diff(sample_ohlcv_df):
     df = sample_ohlcv_df
     diff = get_daterange_and_df_diff(date_range, df)
 
-    assert len(diff) == 0
+    assert len(diff) == 1
+    assert diff[0] == datetime(2023, 1, 4)
