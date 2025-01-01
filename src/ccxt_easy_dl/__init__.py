@@ -8,9 +8,32 @@ import pyarrow.parquet as pq
 from appdirs import user_cache_dir
 from loguru import logger
 
-# Get platform-specific cache directory
-CACHE_DIR = user_cache_dir("ccxt_easy_dl", version="v1")
+# Default cache directory
+_CACHE_DIR = user_cache_dir("ccxt_easy_dl", version="v1")
 TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"]
+
+def set_cache_dir(path: str | Path) -> None:
+    """
+    Set the cache directory for CCXT Easy DL.
+
+    Parameters
+    ----------
+    path : str | Path
+        The path to use as the cache directory
+    """
+    global _CACHE_DIR
+    _CACHE_DIR = str(path)
+
+def get_cache_dir() -> str:
+    """
+    Get the current cache directory.
+
+    Returns
+    -------
+    str
+        The current cache directory path
+    """
+    return _CACHE_DIR
 
 
 def get_and_validate_exchange(exchange_name: str) -> ccxt.Exchange:
@@ -146,7 +169,7 @@ def get_cache_filepath(symbol: str, timeframe: str, exchange_name: str) -> Path:
     Path
         Path object pointing to the cached file
     """
-    cache_path = Path(CACHE_DIR) / exchange_name
+    cache_path = Path(get_cache_dir()) / exchange_name
     filename = f"{symbol.replace('/', '')}.{timeframe}.parquet"
     return cache_path / filename
 
@@ -227,6 +250,7 @@ def get_daterange_and_df_diff(
 
 
 def fetch_data_from_exchange(symbol: str, exchange: ccxt.Exchange, timeframe: str, since: int, until: int) -> list[list[float]]:
+    # make this func return a dataframe AI!
     all_ohlcv = []
     current_since = since
 
@@ -324,18 +348,7 @@ def download_ohlcv(
         all_ohlcv = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
         logger.debug("Downloaded ohlcv from exchange: {}", all_ohlcv)
 
-        if not all_ohlcv:
-            # If no new data, use existing data if available
-            if not existing_df.empty:
-                results[timeframe] = existing_df
-            continue
-            
-        # Convert to DataFrame
-        df = pd.DataFrame(
-            all_ohlcv,
-            columns=["timestamp", "open", "high", "low", "close", "volume"],
-        )
-        # if existing_df is not empty, then let's merge the two dataframes
+              # if existing_df is not empty, then let's merge the two dataframes
         if not existing_df.empty:
             df = pd.concat([existing_df, df])
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
@@ -352,5 +365,12 @@ def download_ohlcv(
                 filename = f"{exchange}_{symbol.replace('/', '')}_{timeframe}.csv"
                 df.to_csv(filename)
                 logger.debug("Exported {}", filename)
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(
+            all_ohlcv,
+            columns=["timestamp", "open", "high", "low", "close", "volume"],
+        )
+  
 
     return results
