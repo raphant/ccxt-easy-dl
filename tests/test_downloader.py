@@ -189,4 +189,24 @@ def test_download(temp_cache_dir):
     assert len(data[timeframe]) == len(expected_dates)
     assert Path(get_cache_filepath(symbol, timeframe, exchange_name)).exists()
 
-# let's add a test for downloading multiple coins AI!
+def test_download_multiple_coins(temp_cache_dir):
+    """Test downloading data for multiple coins simultaneously."""
+    timeframe = "1d"
+    symbols = ["BTC/USD", "ETH/USD"]
+    start_date = datetime.now() - timedelta(days=7)
+    end_date = datetime.now() - timedelta(days=1)
+    
+    # Download data for multiple symbols
+    data = download_ohlcv(
+        symbol=symbols,
+        start_date=start_date,
+        end_date=end_date,
+        timeframes=[timeframe],
+    )
+    
+    # Verify results for each symbol
+    for symbol in symbols:
+        assert timeframe in data[symbol]
+        expected_dates = date_range_to_list(start_date, end_date, timeframe)
+        assert len(data[symbol][timeframe]) == len(expected_dates)
+        assert Path(get_cache_filepath(symbol, timeframe, exchange_name)).exists()
