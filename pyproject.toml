@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Raphael", email = "raphaelnanje@proton.me" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "ccxt>=4.2.15",
     "pandas>=2.2.0",
