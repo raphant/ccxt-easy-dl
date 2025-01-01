@@ -13,8 +13,14 @@ A Python package that simplifies downloading and caching of cryptocurrency OHLCV
 
 ## Installation
 
+You can install ccxt-easy-dl using either pip or uv:
+
 ```bash
-pip install ccxt-easy-dl
+# Using pip
+pip install git+https://github.com/raphant/ccxt-easy-dl.git
+
+# Using uv
+uv add "ccxt-easy-dl @ git+https://github.com/raphant/ccxt-easy-dl.git"
 ```
 
 ## Usage
