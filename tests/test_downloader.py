@@ -100,14 +100,13 @@ def test_get_daterange_diff(sample_ohlcv_df):
 @pytest.fixture
 def mock_fetch_data(monkeypatch):
     """Mock fetch_data_from_exchange to return predictable data."""
-    # make the last day inclusive AI!
     def mock_fetch(symbol: str, exchange, timeframe: str, since: int, until: int) -> pd.DataFrame:
         # Generate one candle per day
         data = []
         timestamps = []
         current_ts = since
         
-        while current_ts < until:
+        while current_ts <= until:
             # Use timestamp as seed for predictable values
             base_price = current_ts % 10000  # Simple way to get a base price
             timestamps.append(current_ts)
