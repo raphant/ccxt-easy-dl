@@ -30,18 +30,6 @@ def test_test_exchange():
     assert hasattr(exchange, "fetch_ohlcv")
 
 
-def test_download():
-    timeframe = "1d"
-    data = download_ohlcv(
-        symbol=symbol,
-        start_date=(datetime.now() - timedelta(days=7)),
-        end_date=(datetime.now() - timedelta(days=1)),
-        timeframes=[timeframe],
-    )
-    assert timeframe in data
-    assert len(data[timeframe]) >= 6
-    assert Path(get_cache_filepath(symbol, timeframe, exchange_name)).exists()
-
 
 def test_caching(temp_cache_dir):
     """Test that data is properly cached and retrieved."""
@@ -107,6 +95,7 @@ def test_get_daterange_diff(sample_ohlcv_df):
 
 @pytest.fixture
 def mock_fetch_data(monkeypatch):
+    # make this func return a dataframe AI!
     """Mock fetch_data_from_exchange to return predictable data."""
     def mock_fetch(symbol: str, exchange, timeframe: str, since: int, until: int) -> list[list[float]]:
         # Generate one candle per day
@@ -131,7 +120,7 @@ def mock_fetch_data(monkeypatch):
     monkeypatch.setattr(ccxt_easy_dl, 'fetch_data_from_exchange', mock_fetch)
     return mock_fetch
 
-def test_download_with_gap(mock_fetch):
+def test_download_with_gap(mock_fetch_data):
     """Test downloading data with a gap in the middle."""
     timeframe = "1d"
     
@@ -163,3 +152,16 @@ def test_download_with_gap(mock_fetch):
     assert len(df) == 7  # Should have all days without duplicates
     assert df.index.is_monotonic_increasing  # Should be sorted
     assert not df.index.has_duplicates      # Should have no duplicates
+
+def test_download(mock_fetch_data):
+    timeframe = "1d"
+    data = download_ohlcv(
+        symbol=symbol,
+        start_date=(datetime.now() - timedelta(days=7)),
+        end_date=(datetime.now() - timedelta(days=1)),
+        timeframes=[timeframe],
+    )
+    assert timeframe in data
+    assert len(data[timeframe]) >= 6
+    assert Path(get_cache_filepath(symbol, timeframe, exchange_name)).exists()
+
