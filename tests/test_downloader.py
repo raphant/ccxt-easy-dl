@@ -144,7 +144,7 @@ def test_download_with_gap(mock_fetch_data):
     # First download - get 5 days of data
     start_date = datetime(2023, 1, 1)
     end_date = datetime(2023, 1, 5)
-    data1 = download_ohlcv(
+    download_ohlcv(
         symbol=symbol,
         start_date=start_date,
         end_date=end_date,
@@ -170,7 +170,8 @@ def test_download_with_gap(mock_fetch_data):
     assert df.index.is_monotonic_increasing  # Should be sorted
     assert not df.index.has_duplicates      # Should have no duplicates
 
-def test_download(mock_fetch_data):
+def test_download():
+    # create a list of the dates so it can be compared to the dataframe index via len AI!
     timeframe = "1d"
     data = download_ohlcv(
         symbol=symbol,
