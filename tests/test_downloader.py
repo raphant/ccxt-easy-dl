@@ -189,3 +189,4 @@ def test_download(temp_cache_dir):
     assert len(data[timeframe]) == len(expected_dates)
     assert Path(get_cache_filepath(symbol, timeframe, exchange_name)).exists()
 
+# let's add a test for downloading multiple coins AI!
