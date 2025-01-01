@@ -1,12 +1,28 @@
 from datetime import datetime, timedelta
+import tempfile
+import shutil
+from pathlib import Path
 
 import pytest
 import pandas as pd
-from ccxt_easy_dl import download_ohlcv, get_and_validate_exchange, CACHE_DIR, get_cache_filepath, get_daterange_and_df_diff
-from pathlib import Path
+from ccxt_easy_dl import (
+    download_ohlcv,
+    get_and_validate_exchange,
+    get_cache_filepath,
+    get_daterange_and_df_diff,
+    set_cache_dir,
+)
 
 exchange_name = "bitstamp"
 symbol = "BTC/USD"
+
+@pytest.fixture(autouse=True)
+def temp_cache_dir():
+    """Create a temporary directory for cache and clean it up after tests."""
+    temp_dir = tempfile.mkdtemp()
+    set_cache_dir(temp_dir)
+    yield temp_dir
+    shutil.rmtree(temp_dir)
 
 
 def test_test_exchange():
@@ -18,17 +34,46 @@ def test_download():
     timeframe = "1d"
     data = download_ohlcv(
         symbol=symbol,
-        start_date=(datetime.now() - timedelta(days=4)),
+        start_date=(datetime.now() - timedelta(days=7)),
         end_date=(datetime.now() - timedelta(days=1)),
         timeframes=[timeframe],
     )
     assert timeframe in data
-    assert len(data[timeframe]) >= 3
+    assert len(data[timeframe]) >= 6
     assert Path(get_cache_filepath(symbol, timeframe, exchange_name)).exists()
 
 
-def test_caching():
-    pass
+def test_caching(temp_cache_dir):
+    """Test that data is properly cached and retrieved."""
+    timeframe = "1d"
+    end_date = datetime.now() - timedelta(days=1)
+    start_date = end_date - timedelta(days=7)
+    
+    # First download - should fetch from exchange
+    data1 = download_ohlcv(
+        symbol=symbol,
+        start_date=start_date,
+        end_date=end_date,
+        timeframes=[timeframe],
+    )
+    
+    # Verify cache file exists
+    cache_file = get_cache_filepath(symbol, timeframe, exchange_name)
+    assert cache_file.exists()
+    
+    # Second download - should use cache
+    data2 = download_ohlcv(
+        symbol=symbol,
+        start_date=start_date,
+        end_date=end_date,
+        timeframes=[timeframe],
+    )
+    
+    # Data should be identical
+    pd.testing.assert_frame_equal(data1[timeframe], data2[timeframe])
+    
+    # Verify cache directory is temp directory
+    assert Path(temp_cache_dir) in cache_file.parents
 
 @pytest.fixture
 def sample_ohlcv_df():
@@ -59,3 +104,31 @@ def test_get_daterange_diff(sample_ohlcv_df):
 
     assert len(diff) == 1
     assert diff[0] == datetime(2023, 1, 4)
+
+@pytest.fixture
+def mock_fetch_data(monkeypatch):
+    """Mock fetch_data_from_exchange to return predictable data."""
+    def mock_fetch(symbol: str, exchange, timeframe: str, since: int, until: int) -> list[list[float]]:
+        # Generate one candle per day
+        data = []
+        current_ts = since
+        while current_ts < until:
+            # Use timestamp as seed for predictable values
+            base_price = current_ts % 10000  # Simple way to get a base price
+            data.append([
+                current_ts,  # timestamp
+                base_price,  # open
+                base_price * 1.1,  # high
+                base_price * 0.9,  # low
+                base_price * 1.05,  # close
+                base_price * 100,  # volume
+            ])
+            # Move to next day
+            current_ts += 86400000  # Add one day in milliseconds
+        return data
+    
+    import ccxt_easy_dl
+    monkeypatch.setattr(ccxt_easy_dl, 'fetch_data_from_exchange', mock_fetch)
+    return mock_fetch
+
+# download mocked data from one range, and then download again with a gap in the middle AI!
