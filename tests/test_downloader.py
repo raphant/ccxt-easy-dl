@@ -95,9 +95,8 @@ def test_get_daterange_diff(sample_ohlcv_df):
 
 @pytest.fixture
 def mock_fetch_data(monkeypatch):
-    # make this func return a dataframe AI!
     """Mock fetch_data_from_exchange to return predictable data."""
-    def mock_fetch(symbol: str, exchange, timeframe: str, since: int, until: int) -> list[list[float]]:
+    def mock_fetch(symbol: str, exchange, timeframe: str, since: int, until: int) -> pd.DataFrame:
         # Generate one candle per day
         data = []
         current_ts = since
@@ -114,7 +113,21 @@ def mock_fetch_data(monkeypatch):
             ])
             # Move to next day
             current_ts += 86400000  # Add one day in milliseconds
-        return data
+            
+        if not data:
+            return pd.DataFrame()
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(
+            data,
+            columns=["timestamp", "open", "high", "low", "close", "volume"]
+        )
+        
+        # Convert timestamp to datetime index
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        df.set_index("timestamp", inplace=True)
+        
+        return df
     
     import ccxt_easy_dl
     monkeypatch.setattr(ccxt_easy_dl, 'fetch_data_from_exchange', mock_fetch)
