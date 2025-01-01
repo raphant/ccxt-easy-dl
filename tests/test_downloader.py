@@ -171,15 +171,20 @@ def test_download_with_gap(mock_fetch_data):
     assert not df.index.has_duplicates      # Should have no duplicates
 
 def test_download():
-    # create a list of the dates so it can be compared to the dataframe index via len AI!
     timeframe = "1d"
+    start_date = datetime.now() - timedelta(days=7)
+    end_date = datetime.now() - timedelta(days=1)
+    
+    # Create expected date range
+    expected_dates = date_range_to_list(start_date, end_date, timeframe)
+    
     data = download_ohlcv(
         symbol=symbol,
-        start_date=(datetime.now() - timedelta(days=7)),
-        end_date=(datetime.now() - timedelta(days=1)),
+        start_date=start_date,
+        end_date=end_date,
         timeframes=[timeframe],
     )
     assert timeframe in data
-    assert len(data[timeframe]) >= 6
+    assert len(data[timeframe]) == len(expected_dates)
     assert Path(get_cache_filepath(symbol, timeframe, exchange_name)).exists()
 
