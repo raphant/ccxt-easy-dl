@@ -14,7 +14,7 @@ from rich import print as rprint
 # Configure rich logging
 FORMAT = "%(message)s"
 logging.basicConfig(
-    level="DEBUG",
+    level="INFO",
     format=FORMAT,
     datefmt="[%X]",
     handlers=[RichHandler(rich_tracebacks=True)]
