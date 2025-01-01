@@ -30,7 +30,7 @@ def temp_cache_dir():
     shutil.rmtree(temp_dir)
 
 
-def test_test_exchange():
+def test_test_exchange(temp_cache_dir):
     exchange = get_and_validate_exchange(exchange_name)
     assert hasattr(exchange, "fetch_ohlcv")
 
@@ -84,7 +84,7 @@ def sample_ohlcv_df():
     df.index.name = 'timestamp'
     return df
 
-def test_get_daterange_diff(sample_ohlcv_df):
+def test_get_daterange_diff(sample_ohlcv_df, temp_cache_dir):
     # Create a date range that partially overlaps with the sample data
     date_range = [
         datetime(2023, 1, 1),
@@ -138,7 +138,7 @@ def mock_fetch_data(monkeypatch):
     monkeypatch.setattr(ccxt_easy_dl, 'fetch_data_from_exchange', mock_fetch)
     return mock_fetch
 
-def test_download_with_gap(mock_fetch_data):
+def test_download_with_gap(mock_fetch_data, temp_cache_dir):
     """Test downloading data with a gap in the middle."""
     timeframe = "1d"
     
@@ -171,7 +171,7 @@ def test_download_with_gap(mock_fetch_data):
     assert df.index.is_monotonic_increasing  # Should be sorted
     assert not df.index.has_duplicates      # Should have no duplicates
 
-def test_download():
+def test_download(temp_cache_dir):
     timeframe = "1d"
     start_date = datetime.now() - timedelta(days=7)
     end_date = datetime.now() - timedelta(days=1)
