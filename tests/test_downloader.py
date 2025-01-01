@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import tempfile
 import shutil
 from pathlib import Path
+import logging
 
 import pytest
 import pandas as pd
@@ -12,6 +13,9 @@ from ccxt_easy_dl import (
     get_daterange_and_df_diff,
     set_cache_dir,
 )
+
+# Set ccxt_easy_dl logger to debug level
+logging.getLogger("ccxt_easy_dl").setLevel(logging.DEBUG)
 
 exchange_name = "bitstamp"
 symbol = "BTC/USD"
@@ -96,6 +100,7 @@ def test_get_daterange_diff(sample_ohlcv_df):
 @pytest.fixture
 def mock_fetch_data(monkeypatch):
     """Mock fetch_data_from_exchange to return predictable data."""
+    # make the last day inclusive AI!
     def mock_fetch(symbol: str, exchange, timeframe: str, since: int, until: int) -> pd.DataFrame:
         # Generate one candle per day
         data = []
