@@ -7,6 +7,7 @@ import logging
 import pytest
 import pandas as pd
 from ccxt_easy_dl import (
+    date_range_to_list,
     download_ohlcv,
     get_and_validate_exchange,
     get_cache_filepath,

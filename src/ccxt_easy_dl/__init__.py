@@ -1,12 +1,27 @@
 from datetime import timedelta, datetime
 from pathlib import Path
 import time
+import logging
 
 import ccxt
 import pandas as pd
 import pyarrow.parquet as pq
 from appdirs import user_cache_dir
-from loguru import logger
+from rich.logging import RichHandler
+from rich.console import Console
+from rich import print as rprint
+
+# Configure rich logging
+FORMAT = "%(message)s"
+logging.basicConfig(
+    level="DEBUG",
+    format=FORMAT,
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+
+logger = logging.getLogger("ccxt_easy_dl")
+console = Console()
 
 # Default cache directory
 _CACHE_DIR = user_cache_dir("ccxt_easy_dl", version="v1")
@@ -229,21 +244,21 @@ def get_daterange_and_df_diff(
     """
     if df.empty:
         return date_range
-    logger.debug("df index {}", df.index)
+    logger.debug("📊 DataFrame index: %s", df.index)
     # Ensure the DataFrame has a datetime index
     if not isinstance(df.index, pd.DatetimeIndex):
         df.index = pd.to_datetime(df.index)
 
     # Convert both to sets of dates (without time) for comparison
     date_range_set = {dt.date() for dt in date_range}
-    logger.debug("date range set {}", date_range_set)
+    logger.debug("📅 Date range set: %s", date_range_set)
 
     df_dates_set = {dt.date() for dt in df.index}
-    logger.debug("df dates set {}", df_dates_set)
+    logger.debug("📅 DataFrame dates set: %s", df_dates_set)
 
     # Find dates in range that aren't in the DataFrame
     missing_dates = date_range_set - df_dates_set
-    logger.debug("missing dates {}", missing_dates)
+    logger.debug("❌ Missing dates: %s", missing_dates)
 
     # Convert back to datetime objects matching the original date_range
     return [dt for dt in date_range if dt.date() in missing_dates]
@@ -361,48 +376,52 @@ def download_ohlcv(
         min_date = start_date
         max_date = end_date
         date_range_list = date_range_to_list(start_date, end_date, timeframe)
-        logger.debug("Date range list {}", date_range_list)
+        logger.debug("📋 Date range list: %s", date_range_list)
         existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
-        logger.debug("dtypes and index for existing df: {} {}", existing_df.dtypes, existing_df.index)
+        logger.debug("📊 DataFrame info - dtypes: %s, index: %s", existing_df.dtypes, existing_df.index)
         if not existing_df.empty:
             date_diff = get_daterange_and_df_diff(date_range_list, existing_df)
-            logger.debug("date diff {}", date_diff)
+            logger.debug("📅 Date differences: %s", date_diff)
             if not date_diff:
                 # Slice the existing DataFrame to only include the requested date range
                 results[timeframe] = existing_df.loc[start_date:end_date]
                 continue
             min_date = min(date_diff)
             max_date = max(date_diff)
-            until = min_date.timestamp() * 1000
-            since = max_date.timestamp() * 1000
-        logger.debug("Downloading {} data for {} timeframe from {} to {}...", symbol, timeframe, min_date, max_date)
+            since = min_date.timestamp() * 1000
+            until = max_date.timestamp() * 1000
+        logger.debug("⬇️  Downloading %s data for %s timeframe from %s to %s...", symbol, timeframe, min_date, max_date)
 
-        all_ohlcv = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
-        logger.debug("Downloaded ohlcv from exchange: {}", all_ohlcv)
+        df = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
+        logger.debug("📈 Downloaded OHLCV data: %s", df)
 
-              # if existing_df is not empty, then let's merge the two dataframes
+        # if existing_df is not empty, then let's merge the two dataframes
         if not existing_df.empty:
-            df = pd.concat([existing_df, df])
-            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-            df.set_index("timestamp", inplace=True)
-            cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
-            logger.debug("{}'s {} data has been saved to {}", symbol, timeframe, cache_path)
+            logger.debug("🔄 Merging existing data (shape: %s) with new data (shape: %s)", existing_df.shape, df.shape)
+            logger.debug("📅 Existing data date range: %s to %s", 
+                        existing_df.index.min() if not existing_df.empty else None,
+                        existing_df.index.max() if not existing_df.empty else None)
+            logger.debug("📅 New data date range: %s to %s",
+                        df.index.min() if not df.empty else None,
+                        df.index.max() if not df.empty else None)
 
-            # Store DataFrame in results dictionary
-            results[timeframe] = df
-            logger.debug("Downloaded {} data", timeframe)
+        df = pd.concat([existing_df, df])
+        logger.debug("✨ Merged data shape: %s", df.shape)
+        logger.debug("📅 Final date range: %s to %s", 
+                    df.index.min() if not df.empty else None,
+                    df.index.max() if not df.empty else None)
 
-            # Export to CSV if requested
-            if export:
-                filename = f"{exchange}_{symbol.replace('/', '')}_{timeframe}.csv"
-                df.to_csv(filename)
-                logger.debug("Exported {}", filename)
-            
-        # Convert to DataFrame
-        df = pd.DataFrame(
-            all_ohlcv,
-            columns=["timestamp", "open", "high", "low", "close", "volume"],
-        )
-  
+        cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
+        logger.debug("💾 %s's %s data has been saved to %s", symbol, timeframe, cache_path)
+
+        # Store DataFrame in results dictionary
+        results[timeframe] = df
+        logger.debug("✅ Downloaded %s data", timeframe)
+
+        # Export to CSV if requested
+        if export:
+            filename = f"{exchange}_{symbol.replace('/', '')}_{timeframe}.csv"
+            df.to_csv(filename)
+            logger.debug("📁 Exported to %s", filename)
 
     return results

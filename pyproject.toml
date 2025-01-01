@@ -17,7 +17,6 @@ dependencies = [
     "rich>=13.9.4",
     "urllib3==1.26.6",
     "appdirs>=1.4.4",
-    "loguru>=0.7.3",
 ]
 
 [project.optional-dependencies]
@@ -32,10 +31,25 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
-addopts = ""
+addopts = "--cov=src/ccxt_easy_dl --cov-report=html --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
+
+[tool.coverage.run]
+source = ["src/ccxt_easy_dl"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
 
 [tool.uv.sources]
 ccxt-easy-dl = { workspace = true }
