@@ -32,17 +32,17 @@ def test_caching():
 @pytest.fixture
 def sample_ohlcv_df():
     # Create sample OHLCV data for 3 days
-    # timestamp needs to be a datetime index AI!
     dates = pd.date_range(start='2023-01-01', periods=3, freq='D')
     data = {
-        'timestamp': dates,
         'open': [40000, 41000, 42000],
         'high': [42000, 43000, 44000],
         'low': [39000, 40000, 41000],
         'close': [41000, 42000, 43000],
         'volume': [100, 120, 110]
     }
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data, index=dates)
+    df.index.name = 'timestamp'
+    return df
 
 def test_get_daterange_diff(sample_ohlcv_df):
     # Create a date range that partially overlaps with the sample data
