@@ -25,7 +25,7 @@ def get_and_validate_exchange(exchange_name: str) -> ccxt.Exchange:
     Returns
     -------
     ccxt.Exchange
-        Configured exchange instance
+            Configured exchange instance
 
     Raises
     ------
@@ -206,23 +206,27 @@ def get_daterange_and_df_diff(
     """
     if df.empty:
         return date_range
-
+    logger.debug("df index {}", df.index)
     # Ensure the DataFrame has a datetime index
     if not isinstance(df.index, pd.DatetimeIndex):
         df.index = pd.to_datetime(df.index)
 
     # Convert both to sets of dates (without time) for comparison
     date_range_set = {dt.date() for dt in date_range}
+    logger.debug("date range set {}", date_range_set)
+
     df_dates_set = {dt.date() for dt in df.index}
+    logger.debug("df dates set {}", df_dates_set)
 
     # Find dates in range that aren't in the DataFrame
     missing_dates = date_range_set - df_dates_set
+    logger.debug("missing dates {}", missing_dates)
 
     # Convert back to datetime objects matching the original date_range
     return [dt for dt in date_range if dt.date() in missing_dates]
 
 
-def fetch_data_from_exchange(symbol, exchange, timeframe, since, until):
+def fetch_data_from_exchange(symbol: str, exchange: ccxt.Exchange, timeframe: str, since: int, until: int) -> list[list[float]]:
     all_ohlcv = []
     current_since = since
 
@@ -284,7 +288,6 @@ def download_ohlcv(
     dict[str, pd.DataFrame]
         Dictionary mapping each timeframe to its corresponding OHLCV DataFrame
     """
-    # change all prints in the func to loguru.debug AI!
     assert all([tf in TIMEFRAMES for tf in timeframes])
     # Initialize exchange
     exchange = get_and_validate_exchange(exchange_name)
@@ -302,10 +305,12 @@ def download_ohlcv(
         min_date = start_date
         max_date = end_date
         date_range_list = date_range_to_list(start_date, end_date, timeframe)
+        logger.debug("Date range list {}", date_range_list)
         existing_df = parquet_cache_to_pandas(symbol, timeframe, exchange_name)
-        logger.debug("dtypes and index for existing df: %s %s", existing_df.dtypes, existing_df.index)
+        logger.debug("dtypes and index for existing df: {} {}", existing_df.dtypes, existing_df.index)
         if not existing_df.empty:
             date_diff = get_daterange_and_df_diff(date_range_list, existing_df)
+            logger.debug("date diff {}", date_diff)
             if not date_diff:
                 # Slice the existing DataFrame to only include the requested date range
                 results[timeframe] = existing_df.loc[start_date:end_date]
@@ -314,30 +319,33 @@ def download_ohlcv(
             max_date = max(date_diff)
             until = min_date.timestamp() * 1000
             since = max_date.timestamp() * 1000
-        logger.debug("Downloading %s data for %s timeframe from %s to %s...", symbol, timeframe, min_date, max_date)
+        logger.debug("Downloading {} data for {} timeframe from {} to {}...", symbol, timeframe, min_date, max_date)
 
         all_ohlcv = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
-        logger.debug("Downloaded ohlcv from exchange: %s", all_ohlcv)
+        logger.debug("Downloaded ohlcv from exchange: {}", all_ohlcv)
 
-        if all_ohlcv:
+        if all_ohlcv: # flip this all_ohlcv with the aim of merging the two dataframes. AI!
             # Convert to DataFrame
             df = pd.DataFrame(
                 all_ohlcv,
                 columns=["timestamp", "open", "high", "low", "close", "volume"],
             )
+            # if existing_df is not empty, then let's merge the two dataframes
+            if not existing_df.empty:
+                df = pd.concat([existing_df, df])
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             df.set_index("timestamp", inplace=True)
             cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
-            logger.debug("%s's %s data has been saved to %s", symbol, timeframe, cache_path)
+            logger.debug("{}'s {} data has been saved to {}", symbol, timeframe, cache_path)
 
             # Store DataFrame in results dictionary
             results[timeframe] = df
-            logger.debug("Downloaded %s data", timeframe)
+            logger.debug("Downloaded {} data", timeframe)
 
             # Export to CSV if requested
             if export:
                 filename = f"{exchange}_{symbol.replace('/', '')}_{timeframe}.csv"
                 df.to_csv(filename)
-                logger.debug("Exported %s", filename)
+                logger.debug("Exported {}", filename)
 
     return results
