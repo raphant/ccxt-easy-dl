@@ -324,15 +324,20 @@ def download_ohlcv(
         all_ohlcv = fetch_data_from_exchange(symbol, exchange, timeframe, since, until)
         logger.debug("Downloaded ohlcv from exchange: {}", all_ohlcv)
 
-        if all_ohlcv: # invert this boolean with the aim of merging the two dataframes. AI!
-            # Convert to DataFrame
-            df = pd.DataFrame(
-                all_ohlcv,
-                columns=["timestamp", "open", "high", "low", "close", "volume"],
-            )
-            # if existing_df is not empty, then let's merge the two dataframes
+        if not all_ohlcv:
+            # If no new data, use existing data if available
             if not existing_df.empty:
-                df = pd.concat([existing_df, df])
+                results[timeframe] = existing_df
+            continue
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(
+            all_ohlcv,
+            columns=["timestamp", "open", "high", "low", "close", "volume"],
+        )
+        # if existing_df is not empty, then let's merge the two dataframes
+        if not existing_df.empty:
+            df = pd.concat([existing_df, df])
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             df.set_index("timestamp", inplace=True)
             cache_path = pandas_to_parquet_cache(symbol, timeframe, df, exchange_name)
