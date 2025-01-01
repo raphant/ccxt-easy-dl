@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 import pandas as pd
-from ccxt_easy_dl import download_ohlcv, get_and_validate_exchange, CACHE_DIR, get_cache_filepath
+from ccxt_easy_dl import download_ohlcv, get_and_validate_exchange, CACHE_DIR, get_cache_filepath, get_daterange_and_df_diff
 from pathlib import Path
 
 exchange_name = "bitstamp"
@@ -32,6 +32,7 @@ def test_caching():
 @pytest.fixture
 def sample_ohlcv_df():
     # Create sample OHLCV data for 3 days
+    # timestamp needs to be a datetime index AI!
     dates = pd.date_range(start='2023-01-01', periods=3, freq='D')
     data = {
         'timestamp': dates,
@@ -52,4 +53,6 @@ def test_get_daterange_diff(sample_ohlcv_df):
         datetime(2023, 1, 4)  # This date is not in the sample data
     ]
     df = sample_ohlcv_df
-    
+    diff = get_daterange_and_df_diff(date_range, df)
+
+    assert len(diff) == 0
