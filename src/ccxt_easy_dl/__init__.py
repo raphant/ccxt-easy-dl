@@ -249,8 +249,27 @@ def get_daterange_and_df_diff(
     return [dt for dt in date_range if dt.date() in missing_dates]
 
 
-def fetch_data_from_exchange(symbol: str, exchange: ccxt.Exchange, timeframe: str, since: int, until: int) -> list[list[float]]:
-    # make this func return a dataframe AI!
+def fetch_data_from_exchange(symbol: str, exchange: ccxt.Exchange, timeframe: str, since: int, until: int) -> pd.DataFrame:
+    """Fetch OHLCV data from exchange and return as DataFrame.
+
+    Parameters
+    ----------
+    symbol : str
+        Trading pair symbol
+    exchange : ccxt.Exchange
+        Exchange instance to fetch from
+    timeframe : str
+        Timeframe to fetch
+    since : int
+        Start timestamp in milliseconds
+    until : int
+        End timestamp in milliseconds
+
+    Returns
+    -------
+    pd.DataFrame
+        OHLCV data with datetime index and columns [open, high, low, close, volume]
+    """
     all_ohlcv = []
     current_since = since
 
@@ -278,7 +297,20 @@ def fetch_data_from_exchange(symbol: str, exchange: ccxt.Exchange, timeframe: st
         except Exception as e:
             print(f"Error downloading {timeframe} data: {str(e)}")
             break
-    return all_ohlcv
+    if not all_ohlcv:
+        return pd.DataFrame()
+        
+    # Convert to DataFrame
+    df = pd.DataFrame(
+        all_ohlcv,
+        columns=["timestamp", "open", "high", "low", "close", "volume"],
+    )
+    
+    # Convert timestamp to datetime index
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+    df.set_index("timestamp", inplace=True)
+    
+    return df
 
 
 def download_ohlcv(
