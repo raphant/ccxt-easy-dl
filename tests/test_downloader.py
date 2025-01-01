@@ -97,6 +97,7 @@ def test_get_daterange_diff(sample_ohlcv_df):
 def mock_fetch_data(monkeypatch):
     """Mock fetch_data_from_exchange to return predictable data."""
     def mock_fetch(symbol: str, exchange, timeframe: str, since: int, until: int) -> pd.DataFrame:
+        # current_ts should be the index of the dataframe AI!
         # Generate one candle per day
         data = []
         current_ts = since
@@ -120,12 +121,12 @@ def mock_fetch_data(monkeypatch):
         # Convert to DataFrame
         df = pd.DataFrame(
             data,
-            columns=["timestamp", "open", "high", "low", "close", "volume"]
+            columns=["open", "high", "low", "close", "volume"]
         )
         
         # Convert timestamp to datetime index
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-        df.set_index("timestamp", inplace=True)
+        # df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        # df.set_index("timestamp", inplace=True)
         
         return df
     
