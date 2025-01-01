@@ -425,3 +425,13 @@ def download_ohlcv(
             logger.debug("📁 Exported to %s", filename)
 
     return results
+
+def download_multiple_ohlcv(
+    symbols: list[str],
+    timeframes: list[str],
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    export: bool = False,
+) -> dict[str, pd.DataFrame]:
+    # download data for each symbol and timeframe sequentially AI!
+    pass
