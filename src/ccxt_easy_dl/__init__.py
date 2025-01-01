@@ -432,6 +432,39 @@ def download_multiple_ohlcv(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     export: bool = False,
-) -> dict[str, pd.DataFrame]:
-    # download data for each symbol and timeframe sequentially AI!
-    pass
+) -> dict[str, dict[str, pd.DataFrame]]:
+    """
+    Download OHLCV data for multiple symbols and timeframes.
+
+    Parameters
+    ----------
+    symbols : list[str]
+        List of trading pairs to download (e.g., ['BTC/USD', 'ETH/USD'])
+    timeframes : list[str]
+        List of timeframes to download
+    start_date : datetime, optional
+        Start date for data download. If None, defaults to 30 days before end_date
+    end_date : datetime, optional
+        End date for data download. If None, defaults to current time
+    export : bool, default=False
+        If True, saves each timeframe's data to a CSV file
+
+    Returns
+    -------
+    dict[str, dict[str, pd.DataFrame]]
+        Nested dictionary mapping each symbol to its timeframes and corresponding OHLCV DataFrames
+    """
+    results = {}
+    
+    for symbol in symbols:
+        logger.debug(f"📥 Downloading data for {symbol}")
+        symbol_data = download_ohlcv(
+            symbol=symbol,
+            timeframes=timeframes,
+            start_date=start_date,
+            end_date=end_date,
+            export=export
+        )
+        results[symbol] = symbol_data
+        
+    return results
