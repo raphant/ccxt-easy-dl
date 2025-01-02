@@ -316,14 +316,22 @@ def get_daterange_and_df_diff(
 
     # Convert both to sets of dates (without time) for comparison
     date_range_set = {dt.date() for dt in date_range}
-    logger.debug("📅 Date range set: %s", date_range_set)
+    date_range_list = sorted(list(date_range_set))
+    logger.debug("📅 Date range set size: %d (from %s to %s)", 
+                len(date_range_set),
+                date_range_list[0] if date_range_list else "N/A",
+                date_range_list[-1] if date_range_list else "N/A")
 
     df_dates_set = {dt.date() for dt in df.index}
-    logger.debug("📅 DataFrame dates set: %s", df_dates_set)
+    logger.debug("📅 DataFrame dates set size: %d", len(df_dates_set))
 
     # Find dates in range that aren't in the DataFrame
     missing_dates = date_range_set - df_dates_set
-    logger.debug("❌ Missing dates: %s", missing_dates)
+    missing_dates_list = sorted(list(missing_dates))
+    logger.debug("❌ Missing dates count: %d (from %s to %s)", 
+                len(missing_dates),
+                missing_dates_list[0] if missing_dates_list else "N/A",
+                missing_dates_list[-1] if missing_dates_list else "N/A")
 
     # Convert back to datetime objects matching the original date_range
     return [dt for dt in date_range if dt.date() in missing_dates]
@@ -433,8 +441,12 @@ def _handle_existing_data(
         return None, None
         
     date_diff = get_daterange_and_df_diff(date_range_list, existing_df)
-    logger.debug("📅 Date differences: %s", date_diff)
-    
+    # Sanity check - make sure date_diff is not empty before accessing elements
+    if date_diff:
+        logger.debug("📅 Length of date differences: %s. First date: %s. Last date: %s.", 
+                    len(date_diff), date_diff[0], date_diff[-1])
+    else:
+        logger.debug("📅 No date differences found")
     if not date_diff:
         # Use existing data
         mask = (existing_df.index >= working_start_date) & (existing_df.index <= end_date)
@@ -462,6 +474,9 @@ def _merge_and_save_data(
         logger.debug("🔄 Merging data - existing: %s, new: %s", existing_df.shape, new_df.shape)
         df = pd.concat([existing_df, new_df])
         df = df.drop_duplicates()
+        df = df.sort_index()  # Sort by index after merging
+        logger.debug("📊 After merge - first 5 rows:\n%s", df.head())
+        logger.debug("📊 After merge - last 5 rows:\n%s", df.tail())
     else:
         df = new_df
 
@@ -473,7 +488,24 @@ def _merge_and_save_data(
         df.to_csv(filename)
         logger.debug("📁 Exported to %s", filename)
 
-    return df.loc[working_start_date:end_date]
+    logger.debug("📊 Final DataFrame index type: %s", type(df.index))
+    logger.debug("📊 Final DataFrame index range: %s to %s", df.index.min(), df.index.max())
+    logger.debug("📊 Working date range: %s to %s", working_start_date, end_date)
+    logger.debug("📊 Index dtype: %s", df.index.dtype)
+    
+    # Ensure working_start_date and end_date are timezone-naive if the index is
+    if df.index.tz is not None:
+        if working_start_date.tzinfo is None:
+            working_start_date = working_start_date.replace(tzinfo=df.index.tz)
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=df.index.tz)
+    elif df.index.tz is None and (working_start_date.tzinfo is not None or end_date.tzinfo is not None):
+        working_start_date = working_start_date.replace(tzinfo=None)
+        end_date = end_date.replace(tzinfo=None)
+
+    result = df.loc[working_start_date:end_date]
+    logger.debug("📊 Result shape: %s", result.shape)
+    return result
 
 def download_ohlcv(
     symbol: str = "BTC/USD",

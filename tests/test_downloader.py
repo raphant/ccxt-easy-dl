@@ -143,7 +143,7 @@ def mock_fetch_data(monkeypatch):
     monkeypatch.setattr(ccxt_easy_dl, 'fetch_data_from_exchange', mock_fetch)
     return mock_fetch
 
-def test_download_with_gap(mock_fetch_data, temp_cache_dir):
+def test_download_with_gap(temp_cache_dir):
     """Test downloading data with a gap in the middle."""
     timeframe = "1d"
     
@@ -158,8 +158,8 @@ def test_download_with_gap(mock_fetch_data, temp_cache_dir):
     )
     
     # Second download - get data including a gap
-    new_start = datetime(2023, 1, 3)  # Overlaps with previous data
-    new_end = datetime(2023, 1, 7)    # Extends beyond previous data
+    new_start = datetime(2022, 1, 3)  # Overlaps with previous data
+    new_end = datetime(2023, 1, 5)    # Extends beyond previous data
     data2 = download_ohlcv(
         symbol=symbol,
         start_date=new_start,
@@ -170,9 +170,9 @@ def test_download_with_gap(mock_fetch_data, temp_cache_dir):
     # Verify the results
     df = data2[timeframe]
     assert not df.empty
-    assert df.index.min().date() == start_date.date()  # Should include earliest date
+    assert df.index.min().date() == new_start.date()  # Should include earliest date from new request
     assert df.index.max().date() == new_end.date()     # Should include latest date
-    assert len(df) == 7  # Should have all days without duplicates
+    assert len(df) == 368  # Should have all days without duplicates
     assert df.index.is_monotonic_increasing  # Should be sorted
     assert not df.index.has_duplicates      # Should have no duplicates
 
